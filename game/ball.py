@@ -15,11 +15,9 @@ class Ball:
         self.velocity_y = random.choice([-3, 3])
 
     def move(self):
-        # This method now only handles y-axis movement and top/bottom wall collision
+        # This method now only handles y-axis movement.
+        # The wall collision check will be moved to the game engine.
         self.y += self.velocity_y
-
-        if self.y <= 0 or self.y + self.height >= self.screen_height:
-            self.velocity_y *= -1
 
     def reset(self):
         self.x = self.original_x
