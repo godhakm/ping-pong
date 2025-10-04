@@ -1,22 +1,76 @@
 import pygame
+from .paddle import Paddle
+from .ball import Ball
 
-class Paddle:
-    def __init__(self, x, y, width, height):
-        self.x = x
-        self.y = y
+# Game Engine
+
+WHITE = (255, 255, 255)
+
+class GameEngine:
+    def __init__(self, width, height):
         self.width = width
         self.height = height
-        self.speed = 7
+        self.paddle_width = 10
+        self.paddle_height = 100
 
-    def move(self, dy, screen_height):
-        self.y += dy
-        self.y = max(0, min(self.y, screen_height - self.height))
+        self.player = Paddle(10, height // 2 - 50, self.paddle_width, self.paddle_height)
+        self.ai = Paddle(width - 20, height // 2 - 50, self.paddle_width, self.paddle_height)
+        self.ball = Ball(width // 2, height // 2, 7, 7, width, height)
 
-    def rect(self):
-        return pygame.Rect(self.x, self.y, self.width, self.height)
+        self.player_score = 0
+        self.ai_score = 0
+        self.font = pygame.font.SysFont("Arial", 30)
 
-    def auto_track(self, ball, screen_height):
-        if ball.y < self.y:
-            self.move(-self.speed, screen_height)
-        elif ball.y > self.y + self.height:
-            self.move(self.speed, screen_height)
+    def handle_input(self):
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_w]:
+            self.player.move(-10, self.height)
+        if keys[pygame.K_s]:
+            self.player.move(10, self.height)
+
+    def update(self):
+        # --- NEW COLLISION LOGIC ---
+        # 1. Move ball horizontally
+        self.ball.x += self.ball.velocity_x
+
+        # 2. Check for collision with player paddle
+        if self.ball.rect().colliderect(self.player.rect()):
+            if self.ball.velocity_x < 0: # If ball is moving left
+                self.ball.velocity_x *= -1
+                # Snap ball to the right edge of the player paddle
+                self.ball.x = self.player.x + self.player.width
+
+        # 3. Check for collision with AI paddle
+        if self.ball.rect().colliderect(self.ai.rect()):
+            if self.ball.velocity_x > 0: # If ball is moving right
+                self.ball.velocity_x *= -1
+                # Snap ball to the left edge of the AI paddle
+                self.ball.x = self.ai.x - self.ball.width
+
+        # 4. Move ball vertically (and check top/bottom walls)
+        self.ball.move()
+        # --- END OF NEW LOGIC ---
+
+        # Check for scoring
+        if self.ball.x <= 0:
+            self.ai_score += 1
+            self.ball.reset()
+        elif self.ball.x >= self.width:
+            self.player_score += 1
+            self.ball.reset()
+
+        # Update AI movement
+        self.ai.auto_track(self.ball, self.height)
+
+    def render(self, screen):
+        # Draw paddles and ball
+        pygame.draw.rect(screen, WHITE, self.player.rect())
+        pygame.draw.rect(screen, WHITE, self.ai.rect())
+        pygame.draw.ellipse(screen, WHITE, self.ball.rect())
+        pygame.draw.aaline(screen, WHITE, (self.width//2, 0), (self.width//2, self.height))
+
+        # Draw score
+        player_text = self.font.render(str(self.player_score), True, WHITE)
+        ai_text = self.font.render(str(self.ai_score), True, WHITE)
+        screen.blit(player_text, (self.width//4, 20))
+        screen.blit(ai_text, (self.width * 3//4, 20))
